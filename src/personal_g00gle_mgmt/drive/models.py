@@ -40,10 +40,17 @@ class GoogleDriveFolderColor(str, Enum):
     TOY_AUBERGINE = "#a47ae2"
 
 
-class LocalMimeType(str, Enum):
+class BinaryMimeType(str, Enum):
+    OCTET_STREAM = "application/octet-stream"
+
+
+class OfficeDocumentMimeType(str, Enum):
     XLSX = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     DOCX = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-    OCTET_STREAM = "application/octet-stream"
+
+    @property
+    def upload_mime_type(self) -> "OfficeDocumentMimeType":
+        return self
 
 
 class GoogleDriveMimeType(str, Enum):
@@ -52,23 +59,12 @@ class GoogleDriveMimeType(str, Enum):
     DOCUMENT = "application/vnd.google-apps.document"
 
     @property
-    def upload_mime_type(self) -> LocalMimeType:
+    def upload_mime_type(self) -> Union[OfficeDocumentMimeType, BinaryMimeType]:
         if self == GoogleDriveMimeType.SPREADSHEET:
-            return LocalMimeType.XLSX
+            return OfficeDocumentMimeType.XLSX
         elif self == GoogleDriveMimeType.DOCUMENT:
-            return LocalMimeType.DOCX
-        return LocalMimeType.OCTET_STREAM
-
-
-class OfficeDocumentMimeType(str, Enum):
-    XLSX = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-    DOCX = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-
-    @property
-    def upload_mime_type(self) -> LocalMimeType:
-        if self == OfficeDocumentMimeType.XLSX:
-            return LocalMimeType.XLSX
-        return LocalMimeType.DOCX
+            return OfficeDocumentMimeType.DOCX
+        return BinaryMimeType.OCTET_STREAM
 
 
 AnyMimeType = Union[GoogleDriveMimeType, OfficeDocumentMimeType]
