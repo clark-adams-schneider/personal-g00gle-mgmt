@@ -50,12 +50,14 @@ class GoogleDriveMimeType(str, Enum):
     FOLDER = "application/vnd.google-apps.folder"
     SPREADSHEET = "application/vnd.google-apps.spreadsheet"
     DOCUMENT = "application/vnd.google-apps.document"
+    XLSX = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    DOCX = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
 
     @property
     def upload_mime_type(self) -> LocalMimeType:
-        if self == GoogleDriveMimeType.SPREADSHEET:
+        if self in (GoogleDriveMimeType.SPREADSHEET, GoogleDriveMimeType.XLSX):
             return LocalMimeType.XLSX
-        elif self == GoogleDriveMimeType.DOCUMENT:
+        elif self in (GoogleDriveMimeType.DOCUMENT, GoogleDriveMimeType.DOCX):
             return LocalMimeType.DOCX
         return LocalMimeType.OCTET_STREAM
 
