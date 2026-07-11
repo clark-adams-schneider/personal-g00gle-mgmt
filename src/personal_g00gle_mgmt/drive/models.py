@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any, Dict, List, Optional
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, Field, RootModel, model_validator
 
 
 class PermissionModel(BaseModel):
@@ -52,3 +52,7 @@ class TreeNode(BaseModel):
 
 
 TreeNode.model_rebuild()
+
+
+class DriveSpec(RootModel[Dict[str, TreeNode]]):
+    pass

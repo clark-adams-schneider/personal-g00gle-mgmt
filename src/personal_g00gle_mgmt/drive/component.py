@@ -1,10 +1,10 @@
 import os
-from typing import Dict, Optional
+from typing import Optional
 
 import pulumi
 
 from ..utils import get_file_hash
-from .models import TreeNode
+from .models import DriveSpec, TreeNode
 from .resource import Folder
 
 
@@ -12,7 +12,7 @@ class FolderTree(pulumi.ComponentResource):
     def __init__(
         self,
         tree_name: str,
-        spec: Dict[str, TreeNode],
+        spec: DriveSpec,
         client_secrets_path: pulumi.Input[str],
         token_path: Optional[pulumi.Input[str]] = "./token.json",
         opts: Optional[pulumi.ResourceOptions] = None,
@@ -67,7 +67,7 @@ class FolderTree(pulumi.ComponentResource):
                     prefix=f"{prefix}{node_name}-",
                 )
 
-        for root_name, root_node in spec.items():
+        for root_name, root_node in spec.root.items():
             build_node(root_name, root_node)
 
         self.register_outputs({})
