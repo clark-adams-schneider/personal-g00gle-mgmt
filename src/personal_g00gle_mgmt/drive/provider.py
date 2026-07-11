@@ -10,7 +10,13 @@ from pulumi.dynamic import (
 )
 
 from ..auth import GoogleApiName, GoogleOAuthScope, get_google_service
-from .models import AnyMimeType, FolderInputs, GoogleDriveFileBody, GoogleDriveMimeType
+from .models import (
+    AnyMimeType,
+    FolderInputs,
+    GoogleDriveFileBody,
+    GoogleDriveMimeType,
+    GoogleDriveSearchQuery,
+)
 
 DRIVE_SCOPES = [
     GoogleOAuthScope.DRIVE_FILE,
@@ -38,16 +44,13 @@ class FolderProvider(ResourceProvider):
         return MediaFileUpload(str(source), mimetype=upload_mime, resumable=True)
 
     def _find_existing(self, service, model: FolderInputs) -> str:
-        query = f"mimeType = '{model.mime_type}' and name = '{model.name}' and trashed = false"
-        if model.parent:
-            query += f" and '{model.parent}' in parents"
-        else:
-            query += " and 'root' in parents"
-
+        search_query = GoogleDriveSearchQuery(
+            mime_type=model.mime_type, name=model.name, parent=model.parent
+        )
         try:
             results = (
                 service.files()
-                .list(q=query, spaces="drive", fields="files(id)", pageSize=1)
+                .list(q=search_query.query_string, spaces="drive", fields="files(id)")
                 .execute()
             )
             files = results.get("files", [])

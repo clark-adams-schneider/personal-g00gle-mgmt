@@ -79,6 +79,19 @@ class GoogleDriveFileBody(BaseModel):
     trashed: Optional[bool] = None
 
 
+class GoogleDriveSearchQuery(BaseModel):
+    mime_type: AnyMimeType
+    name: str
+    parent: Optional[str] = None
+    trashed: bool = False
+
+    @property
+    def query_string(self) -> str:
+        parent_id = self.parent if self.parent else "root"
+        trashed_str = "true" if self.trashed else "false"
+        return f"mimeType = '{self.mime_type.value}' and name = '{self.name}' and '{parent_id}' in parents and trashed = {trashed_str}"
+
+
 class FolderInputs(BaseModel):
     name: str
     parent: Optional[str] = None
