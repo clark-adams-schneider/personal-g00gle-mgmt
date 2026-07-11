@@ -1,7 +1,7 @@
 [project]
 name = "personal-g00gle-mgmt"
 version = "0.1.0"
-description = "Personal Google Cloud and Workspace Management IaC"
+description = "Personal Google Cloud and Services Management IaC"
 readme = "README.md"
 requires-python = ">=3.9"
 dependencies = [
