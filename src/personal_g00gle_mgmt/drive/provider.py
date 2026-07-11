@@ -87,11 +87,16 @@ class FolderProvider(ResourceProvider):
         if model.folder_color_rgb and model.mime_type == GoogleDriveMimeType.FOLDER:
             body.folderColorRgb = model.folder_color_rgb
 
-        kwargs = {"body": body.model_dump(exclude_none=True), "fields": "id"}
+        body_dict = body.model_dump(exclude_none=True)
         if media:
-            kwargs["media_body"] = media
+            folder = (
+                service.files()
+                .create(body=body_dict, media_body=media, fields="id")
+                .execute()
+            )
+        else:
+            folder = service.files().create(body=body_dict, fields="id").execute()
 
-        folder = service.files().create(**kwargs).execute()
         return folder.get("id")
 
     def _reconcile_permissions(self, service, folder_id: str, model: FolderInputs):
