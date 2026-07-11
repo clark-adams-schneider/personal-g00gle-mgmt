@@ -1,6 +1,8 @@
-from typing import List, Optional
+from __future__ import annotations
 
-from pydantic import BaseModel, Field
+from typing import Any, Dict, List, Optional
+
+from pydantic import BaseModel, Field, model_validator
 
 
 class PermissionModel(BaseModel):
@@ -20,3 +22,33 @@ class FolderInputs(BaseModel):
     mime_type: str = "application/vnd.google-apps.folder"
     source: Optional[str] = None
     source_hash: Optional[str] = None
+
+
+class TreeNode(BaseModel):
+    description: Optional[str] = Field(None, alias="_description")
+    color: Optional[str] = Field(None, alias="_color")
+    permissions: List[PermissionModel] = Field(
+        default_factory=list, alias="_permissions"
+    )
+    source: Optional[str] = Field(None, alias="_source")
+    node_type: str = Field("folder", alias="_type")
+    node_id: Optional[str] = Field(None, alias="_id")
+    children: Dict[str, TreeNode] = Field(default_factory=dict)
+
+    @model_validator(mode="before")
+    @classmethod
+    def extract_children(cls, data: Any) -> Any:
+        if not isinstance(data, dict):
+            return data
+        extracted = {}
+        children = {}
+        for k, v in data.items():
+            if k.startswith("_"):
+                extracted[k] = v
+            else:
+                children[k] = v
+        extracted["children"] = children
+        return extracted
+
+
+TreeNode.model_rebuild()
