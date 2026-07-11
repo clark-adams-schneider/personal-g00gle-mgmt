@@ -1,0 +1,6 @@
+name: cs-svc-gmail-ro
+runtime:
+  name: python
+  options:
+    virtualenv: venv
+description: Cryptographically enforced read-only Gmail BFF proxy on Cloud Run
