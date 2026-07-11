@@ -9,7 +9,7 @@ from pulumi.dynamic import (
     UpdateResult,
 )
 
-from ..auth import GoogleOAuthScope, get_google_service
+from ..auth import GoogleApiName, GoogleOAuthScope, get_google_service
 from .models import FolderInputs
 
 DRIVE_SCOPES = [
@@ -20,7 +20,7 @@ DRIVE_SCOPES = [
 
 def get_drive_service(client_secrets_path: str, token_path: str):
     return get_google_service(
-        api_name="drive",
+        api_name=GoogleApiName.DRIVE,
         api_version="v3",
         client_secrets_path=client_secrets_path,
         token_path=token_path,

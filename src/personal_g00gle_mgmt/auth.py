@@ -13,8 +13,18 @@ class GoogleOAuthScope(str, Enum):
     SPREADSHEETS = "https://www.googleapis.com/auth/spreadsheets"
 
 
+class GoogleApiName(str, Enum):
+    DRIVE = "drive"
+    GMAIL = "gmail"
+    DOCS = "docs"
+    SLIDES = "slides"
+    EARTH = "earth"
+    NEWS = "news"
+    TRANSLATE = "translate"
+
+
 def get_google_service(
-    api_name: str,
+    api_name: GoogleApiName,
     api_version: str,
     client_secrets_path: str,
     token_path: str,
