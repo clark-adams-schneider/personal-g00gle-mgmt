@@ -1,14 +1,14 @@
 import hashlib
-import os
+from pathlib import Path
 from typing import Optional
 
 
-def get_file_hash(filepath: str) -> Optional[str]:
+def get_file_hash(filepath: Optional[Path]) -> Optional[str]:
     """Calculate MD5 hash of a local file for change tracking."""
-    if not os.path.exists(filepath):
+    if not filepath or not filepath.exists():
         return None
     hasher = hashlib.md5()
-    with open(filepath, "rb") as f:
+    with filepath.open("rb") as f:
         buf = f.read(65536)
         while len(buf) > 0:
             hasher.update(buf)

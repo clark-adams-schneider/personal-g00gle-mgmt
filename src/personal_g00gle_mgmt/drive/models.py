@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from enum import Enum
+from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, Field, RootModel, model_validator
@@ -15,13 +16,13 @@ class PermissionModel(BaseModel):
 class FolderInputs(BaseModel):
     name: str
     parent: Optional[str] = None
-    client_secrets_path: str
-    token_path: str
+    client_secrets_path: Path
+    token_path: Path
     description: Optional[str] = None
     folder_color_rgb: Optional[str] = None
     permissions: List[PermissionModel] = Field(default_factory=list)
     mime_type: str = "application/vnd.google-apps.folder"
-    source: Optional[str] = None
+    source: Optional[Path] = None
     source_hash: Optional[str] = None
 
 
@@ -64,7 +65,7 @@ class TreeNode(BaseModel):
     permissions: List[PermissionModel] = Field(
         default_factory=list, alias="_permissions"
     )
-    source: Optional[str] = Field(None, alias="_source")
+    source: Optional[Path] = Field(None, alias="_source")
     mime_type: GoogleDriveMimeType = Field(
         GoogleDriveMimeType.FOLDER, alias="_mimeType"
     )

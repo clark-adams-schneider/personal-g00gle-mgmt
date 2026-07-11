@@ -1,5 +1,5 @@
-import os
-from typing import Optional
+from pathlib import Path
+from typing import Optional, Union
 
 import pulumi
 
@@ -13,8 +13,8 @@ class FolderTree(pulumi.ComponentResource):
         self,
         tree_name: str,
         spec: DriveSpec,
-        client_secrets_path: pulumi.Input[str],
-        token_path: Optional[pulumi.Input[str]] = "./token.json",
+        client_secrets_path: Union[str, Path, pulumi.Input[str]],
+        token_path: Union[str, Path, pulumi.Input[str]] = Path("./token.json"),
         opts: Optional[pulumi.ResourceOptions] = None,
     ):
         super().__init__("custom:gdrive:FolderTree", tree_name, {}, opts)
@@ -25,7 +25,7 @@ class FolderTree(pulumi.ComponentResource):
             parent_id: Optional[pulumi.Input[str]] = None,
             prefix: str = "",
         ):
-            abs_source = os.path.abspath(node.source) if node.source else None
+            abs_source = node.source.resolve() if node.source else None
             source_hash = get_file_hash(abs_source) if abs_source else None
 
             mime_type = node.mime_type.value
@@ -41,13 +41,13 @@ class FolderTree(pulumi.ComponentResource):
                 resource_name,
                 name=node_name,
                 parent=parent_id,
-                client_secrets_path=client_secrets_path,
-                token_path=token_path,
+                client_secrets_path=str(client_secrets_path),
+                token_path=str(token_path),
                 description=node.description,
                 folder_color_rgb=node.color.value if node.color else None,
                 permissions=perms_dicts,
                 mime_type=mime_type,
-                source=abs_source,
+                source=str(abs_source) if abs_source else None,
                 source_hash=source_hash,
                 opts=child_opts,
             )

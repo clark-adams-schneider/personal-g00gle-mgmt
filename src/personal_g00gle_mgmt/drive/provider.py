@@ -1,5 +1,5 @@
-import os
-from typing import Any, Dict
+from pathlib import Path
+from typing import Any, Dict, Optional
 
 from pulumi.dynamic import (
     CreateResult,
@@ -18,7 +18,7 @@ DRIVE_SCOPES = [
 ]
 
 
-def get_drive_service(client_secrets_path: str, token_path: str):
+def get_drive_service(client_secrets_path: Path, token_path: Path):
     return get_google_service(
         api_name=GoogleApiName.DRIVE,
         api_version="v3",
@@ -29,8 +29,8 @@ def get_drive_service(client_secrets_path: str, token_path: str):
 
 
 class FolderProvider(ResourceProvider):
-    def _get_media_upload(self, source: str, mime_type: str):
-        if not source or not os.path.exists(source):
+    def _get_media_upload(self, source: Optional[Path], mime_type: str):
+        if not source or not source.exists():
             return None
         from googleapiclient.http import MediaFileUpload
 
@@ -39,7 +39,7 @@ class FolderProvider(ResourceProvider):
             if mime_type == "application/vnd.google-apps.spreadsheet"
             else "application/octet-stream"
         )
-        return MediaFileUpload(source, mimetype=upload_mime, resumable=True)
+        return MediaFileUpload(str(source), mimetype=upload_mime, resumable=True)
 
     def _find_existing(self, service, model: FolderInputs) -> str:
         query = f"mimeType = '{model.mime_type}' and name = '{model.name}' and trashed = false"

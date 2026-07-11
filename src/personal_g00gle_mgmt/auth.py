@@ -1,5 +1,5 @@
-import os
 from enum import Enum
+from pathlib import Path
 from typing import List
 
 from google.auth.transport.requests import Request
@@ -26,17 +26,19 @@ class GoogleApiName(str, Enum):
 def get_google_service(
     api_name: GoogleApiName,
     api_version: str,
-    client_secrets_path: str,
-    token_path: str,
+    client_secrets_path: Path,
+    token_path: Path,
     scopes: List[GoogleOAuthScope],
 ):
     """
     Generic Google API service builder with OAuth2 caching.
     """
     creds = None
-    if os.path.exists(token_path):
+    if token_path.exists():
         try:
-            creds = Credentials.from_authorized_user_file(token_path, scopes)
+            creds = Credentials.from_authorized_user_file(
+                str(token_path), [s.value for s in scopes]
+            )
         except Exception as e:
             print(f"Error loading token from {token_path}: {e}")
             creds = None
@@ -50,10 +52,10 @@ def get_google_service(
                 creds = None
         if not creds:
             flow = InstalledAppFlow.from_client_secrets_file(
-                client_secrets_path, scopes
+                str(client_secrets_path), [s.value for s in scopes]
             )
             creds = flow.run_local_server(port=0)
-        with open(token_path, "w") as token_file:
+        with token_path.open("w") as token_file:
             token_file.write(creds.to_json())
 
     return build(api_name, api_version, credentials=creds)
