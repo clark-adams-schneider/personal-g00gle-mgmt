@@ -3,7 +3,7 @@ from typing import Optional
 
 import pulumi
 
-from ..utils import get_file_hash
+from ..utils import generate_resource_name, get_file_hash
 from .models import DriveSpec, TreeNode
 from .resource import Folder
 
@@ -31,9 +31,7 @@ class FolderTree(pulumi.ComponentResource):
             mime_type = node.node_type.mime_type
 
             resource_id = node.node_id or node_name
-            resource_name = f"{tree_name}-{resource_id}".replace("-", "_").replace(
-                " ", "_"
-            )
+            resource_name = generate_resource_name(tree_name, resource_id)
 
             child_opts = pulumi.ResourceOptions(parent=self)
 

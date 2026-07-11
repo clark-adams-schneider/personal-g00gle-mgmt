@@ -14,3 +14,8 @@ def get_file_hash(filepath: str) -> Optional[str]:
             hasher.update(buf)
             buf = f.read(65536)
     return hasher.hexdigest()
+
+
+def generate_resource_name(tree_name: str, resource_id: str) -> str:
+    """Generate a clean Pulumi resource name by replacing dashes and spaces with underscores."""
+    return f"{tree_name}-{resource_id}".replace("-", "_").replace(" ", "_")
