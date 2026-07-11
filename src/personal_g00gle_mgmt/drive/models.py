@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from enum import Enum
 from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, Field, RootModel, model_validator
@@ -24,6 +25,21 @@ class FolderInputs(BaseModel):
     source_hash: Optional[str] = None
 
 
+class NodeType(str, Enum):
+    FOLDER = "folder"
+    SPREADSHEET = "spreadsheet"
+    DOCUMENT = "document"
+
+    @property
+    def mime_type(self) -> str:
+        mapping = {
+            NodeType.FOLDER: "application/vnd.google-apps.folder",
+            NodeType.SPREADSHEET: "application/vnd.google-apps.spreadsheet",
+            NodeType.DOCUMENT: "application/vnd.google-apps.document",
+        }
+        return mapping[self]
+
+
 class TreeNode(BaseModel):
     description: Optional[str] = Field(None, alias="_description")
     color: Optional[str] = Field(None, alias="_color")
@@ -31,7 +47,7 @@ class TreeNode(BaseModel):
         default_factory=list, alias="_permissions"
     )
     source: Optional[str] = Field(None, alias="_source")
-    node_type: str = Field("folder", alias="_type")
+    node_type: NodeType = Field(NodeType.FOLDER, alias="_type")
     node_id: Optional[str] = Field(None, alias="_id")
     children: Dict[str, TreeNode] = Field(default_factory=dict)
 

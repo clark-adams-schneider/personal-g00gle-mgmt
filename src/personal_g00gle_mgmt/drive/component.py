@@ -28,12 +28,7 @@ class FolderTree(pulumi.ComponentResource):
             abs_source = os.path.abspath(node.source) if node.source else None
             source_hash = get_file_hash(abs_source) if abs_source else None
 
-            if node.node_type == "spreadsheet":
-                mime_type = "application/vnd.google-apps.spreadsheet"
-            elif node.node_type == "document":
-                mime_type = "application/vnd.google-apps.document"
-            else:
-                mime_type = "application/vnd.google-apps.folder"
+            mime_type = node.node_type.mime_type
 
             resource_id = node.node_id or node_name
             resource_name = f"{tree_name}-{resource_id}".replace("-", "_").replace(
