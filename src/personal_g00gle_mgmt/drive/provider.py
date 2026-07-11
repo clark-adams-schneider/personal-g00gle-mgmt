@@ -9,12 +9,12 @@ from pulumi.dynamic import (
     UpdateResult,
 )
 
-from ..auth import get_google_service
+from ..auth import GoogleOAuthScope, get_google_service
 from .models import FolderInputs
 
 DRIVE_SCOPES = [
-    "https://www.googleapis.com/auth/drive.file",
-    "https://www.googleapis.com/auth/spreadsheets",
+    GoogleOAuthScope.DRIVE_FILE,
+    GoogleOAuthScope.SPREADSHEETS,
 ]
 
 

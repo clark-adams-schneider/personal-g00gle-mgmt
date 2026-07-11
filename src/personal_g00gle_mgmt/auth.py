@@ -1,4 +1,5 @@
 import os
+from enum import Enum
 from typing import List
 
 from google.auth.transport.requests import Request
@@ -7,12 +8,17 @@ from google_auth_oauthlib.flow import InstalledAppFlow
 from googleapiclient.discovery import build
 
 
+class GoogleOAuthScope(str, Enum):
+    DRIVE_FILE = "https://www.googleapis.com/auth/drive.file"
+    SPREADSHEETS = "https://www.googleapis.com/auth/spreadsheets"
+
+
 def get_google_service(
     api_name: str,
     api_version: str,
     client_secrets_path: str,
     token_path: str,
-    scopes: List[str],
+    scopes: List[GoogleOAuthScope],
 ):
     """
     Generic Google API service builder with OAuth2 caching.
