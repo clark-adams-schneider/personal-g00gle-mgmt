@@ -10,7 +10,7 @@ from pulumi.dynamic import (
 )
 
 from ..auth import GoogleApiName, GoogleOAuthScope, get_google_service
-from .models import FolderInputs
+from .models import FolderInputs, GoogleDriveMimeType
 
 DRIVE_SCOPES = [
     GoogleOAuthScope.DRIVE_FILE,
@@ -29,16 +29,12 @@ def get_drive_service(client_secrets_path: Path, token_path: Path):
 
 
 class FolderProvider(ResourceProvider):
-    def _get_media_upload(self, source: Optional[Path], mime_type: str):
+    def _get_media_upload(self, source: Optional[Path], mime_type: GoogleDriveMimeType):
         if not source or not source.exists():
             return None
         from googleapiclient.http import MediaFileUpload
 
-        upload_mime = (
-            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-            if mime_type == "application/vnd.google-apps.spreadsheet"
-            else "application/octet-stream"
-        )
+        upload_mime = mime_type.upload_mime_type.value
         return MediaFileUpload(str(source), mimetype=upload_mime, resumable=True)
 
     def _find_existing(self, service, model: FolderInputs) -> str:

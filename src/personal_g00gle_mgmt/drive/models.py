@@ -13,19 +13,6 @@ class PermissionModel(BaseModel):
     type: str
 
 
-class FolderInputs(BaseModel):
-    name: str
-    parent: Optional[str] = None
-    client_secrets_path: Path
-    token_path: Path
-    description: Optional[str] = None
-    folder_color_rgb: Optional[str] = None
-    permissions: List[PermissionModel] = Field(default_factory=list)
-    mime_type: str = "application/vnd.google-apps.folder"
-    source: Optional[Path] = None
-    source_hash: Optional[str] = None
-
-
 class GoogleDriveFolderColor(str, Enum):
     CHOCOLATE = "#ac725e"
     OLD_BRICK = "#d06b64"
@@ -53,10 +40,37 @@ class GoogleDriveFolderColor(str, Enum):
     TOY_AUBERGINE = "#a47ae2"
 
 
+class LocalMimeType(str, Enum):
+    XLSX = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    DOCX = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+    OCTET_STREAM = "application/octet-stream"
+
+
 class GoogleDriveMimeType(str, Enum):
     FOLDER = "application/vnd.google-apps.folder"
     SPREADSHEET = "application/vnd.google-apps.spreadsheet"
     DOCUMENT = "application/vnd.google-apps.document"
+
+    @property
+    def upload_mime_type(self) -> LocalMimeType:
+        if self == GoogleDriveMimeType.SPREADSHEET:
+            return LocalMimeType.XLSX
+        elif self == GoogleDriveMimeType.DOCUMENT:
+            return LocalMimeType.DOCX
+        return LocalMimeType.OCTET_STREAM
+
+
+class FolderInputs(BaseModel):
+    name: str
+    parent: Optional[str] = None
+    client_secrets_path: Path
+    token_path: Path
+    description: Optional[str] = None
+    folder_color_rgb: Optional[str] = None
+    permissions: List[PermissionModel] = Field(default_factory=list)
+    mime_type: GoogleDriveMimeType = Field(default=GoogleDriveMimeType.FOLDER)
+    source: Optional[Path] = None
+    source_hash: Optional[str] = None
 
 
 class TreeNode(BaseModel):
