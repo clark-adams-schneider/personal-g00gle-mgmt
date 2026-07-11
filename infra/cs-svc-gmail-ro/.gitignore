@@ -1,0 +1,18 @@
+# Credentials - none of these should ever exist committed. The service
+# uses impersonation (no downloaded SA keys) and the OAuth token lives only
+# in Secret Manager, never in git.
+client_secret*.json
+token.json
+local-invoker-key.json
+*-key.json
+
+# Local envs / caches (uv-created venvs already self-ignore via their own
+# .gitignore, this is belt-and-suspenders for anything ad hoc).
+.venv/
+venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# Pulumi local state, if a local backend is ever used instead of the cloud.
+.pulumi/

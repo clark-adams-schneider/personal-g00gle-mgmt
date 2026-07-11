@@ -1,0 +1,6 @@
+encryptionsalt: v1:GvvjWJLlCPY=:v1:Hl2S9EgSIOC3ZSkE:YZqT7a1FaW5lNUq+vKg72yjK9hUDXA==
+config:
+  gcp:project: finances-502116
+  gcp:region: us-central1
+  cs-svc-gmail-ro:containerImage: us-central1-docker.pkg.dev/finances-502116/cs-svc-gmail-ro/cs-svc-gmail-ro:latest
+  cs-svc-gmail-ro:developerEmail: clarkschneider21@gmail.com
