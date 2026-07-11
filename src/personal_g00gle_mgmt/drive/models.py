@@ -76,13 +76,21 @@ class TreeNode(BaseModel):
     def extract_children(cls, data: Any) -> Any:
         if not isinstance(data, dict):
             return data
+
+        known_aliases = {
+            field.alias or name
+            for name, field in cls.model_fields.items()
+            if name != "children"
+        }
+
         extracted = {}
         children = {}
         for k, v in data.items():
-            if k.startswith("_"):
+            if k in known_aliases:
                 extracted[k] = v
             else:
                 children[k] = v
+
         extracted["children"] = children
         return extracted
 
