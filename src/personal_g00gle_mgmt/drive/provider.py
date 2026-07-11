@@ -180,24 +180,16 @@ class FolderProvider(ResourceProvider):
         old_m = FolderInputs(**olds)
         new_m = FolderInputs(**news)
 
-        changes = False
-        replaces = []
-        if old_m.name != new_m.name:
-            changes = True
-        if old_m.parent != new_m.parent:
-            changes = True
-        if old_m.description != new_m.description:
-            changes = True
-        if old_m.folder_color_rgb != new_m.folder_color_rgb:
-            changes = True
-        if old_m.permissions != new_m.permissions:
-            changes = True
-        if old_m.source_hash != new_m.source_hash:
-            changes = True
+        ignored_fields = {"client_secrets_path", "token_path"}
+        changed_fields = [
+            field
+            for field in FolderInputs.model_fields
+            if field not in ignored_fields
+            and getattr(old_m, field) != getattr(new_m, field)
+        ]
 
-        if old_m.mime_type != new_m.mime_type:
-            changes = True
-            replaces.append("mime_type")
+        changes = len(changed_fields) > 0
+        replaces = ["mime_type"] if "mime_type" in changed_fields else []
 
         return DiffResult(changes=changes, replaces=replaces)
 
