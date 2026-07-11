@@ -13,6 +13,13 @@ class PermissionModel(BaseModel):
     type: str
 
 
+class PermissionResponse(BaseModel):
+    id: str
+    emailAddress: Optional[str] = None
+    role: Optional[str] = None
+    type: Optional[str] = None
+
+
 class GoogleDriveFolderColor(str, Enum):
     CHOCOLATE = "#ac725e"
     OLD_BRICK = "#d06b64"

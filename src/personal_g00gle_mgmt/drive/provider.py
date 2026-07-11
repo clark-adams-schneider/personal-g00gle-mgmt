@@ -16,6 +16,7 @@ from .models import (
     GoogleDriveFileBody,
     GoogleDriveMimeType,
     GoogleDriveSearchQuery,
+    PermissionResponse,
 )
 
 DRIVE_SCOPES = [
@@ -104,11 +105,12 @@ class FolderProvider(ResourceProvider):
             )
             current_perms = perms_result.get("permissions", [])
 
-            for cp in current_perms:
-                if "emailAddress" in cp:
+            for cp_raw in current_perms:
+                cp = PermissionResponse(**cp_raw)
+                if cp.emailAddress:
                     try:
                         service.permissions().delete(
-                            fileId=folder_id, permissionId=cp["id"]
+                            fileId=folder_id, permissionId=cp.id
                         ).execute()
                     except Exception:
                         pass
