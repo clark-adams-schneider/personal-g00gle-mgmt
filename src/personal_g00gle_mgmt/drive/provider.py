@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Optional
 
 from pulumi.dynamic import (
     CreateResult,
@@ -128,8 +128,8 @@ class FolderProvider(ResourceProvider):
         except Exception as e:
             print(f"Error reconciling permissions: {e}")
 
-    def create(self, inputs: Dict[str, Any]) -> CreateResult:
-        model = FolderInputs(**inputs)
+    def create(self, inputs: FolderInputs) -> CreateResult:
+        model = FolderInputs.model_validate(inputs)
         service = get_drive_service(model.client_secrets_path, model.token_path)
         media = self._get_media_upload(model.source, model.mime_type)
 
@@ -141,10 +141,10 @@ class FolderProvider(ResourceProvider):
             folder_id = self._create_resource(service, model, media)
 
         self._reconcile_permissions(service, folder_id, model)
-        return CreateResult(id_=folder_id, outs=inputs)
+        return CreateResult(id_=folder_id, outs=model.model_dump(mode="json"))
 
-    def read(self, id_: str, props: Dict[str, Any]) -> ReadResult:
-        model = FolderInputs(**props)
+    def read(self, id_: str, props: FolderInputs) -> ReadResult:
+        model = FolderInputs.model_validate(props)
         service = get_drive_service(model.client_secrets_path, model.token_path)
 
         try:
@@ -176,9 +176,9 @@ class FolderProvider(ResourceProvider):
         except Exception:
             return ReadResult(id_="", outs={})
 
-    def diff(self, id_: str, olds: Dict[str, Any], news: Dict[str, Any]) -> DiffResult:
-        old_m = FolderInputs(**olds)
-        new_m = FolderInputs(**news)
+    def diff(self, id_: str, olds: FolderInputs, news: FolderInputs) -> DiffResult:
+        old_m = FolderInputs.model_validate(olds)
+        new_m = FolderInputs.model_validate(news)
 
         ignored_fields = {"client_secrets_path", "token_path"}
         changed_fields = [
@@ -193,11 +193,9 @@ class FolderProvider(ResourceProvider):
 
         return DiffResult(changes=changes, replaces=replaces)
 
-    def update(
-        self, id_: str, olds: Dict[str, Any], news: Dict[str, Any]
-    ) -> UpdateResult:
-        old_m = FolderInputs(**olds)
-        new_m = FolderInputs(**news)
+    def update(self, id_: str, olds: FolderInputs, news: FolderInputs) -> UpdateResult:
+        old_m = FolderInputs.model_validate(olds)
+        new_m = FolderInputs.model_validate(news)
         service = get_drive_service(new_m.client_secrets_path, new_m.token_path)
 
         media = None
@@ -221,10 +219,10 @@ class FolderProvider(ResourceProvider):
         if old_m.permissions != new_m.permissions:
             self._reconcile_permissions(service, id_, new_m)
 
-        return UpdateResult(outs=news)
+        return UpdateResult(outs=new_m.model_dump(mode="json"))
 
-    def delete(self, id_: str, props: Dict[str, Any]) -> None:
-        model = FolderInputs(**props)
+    def delete(self, id_: str, props: FolderInputs) -> None:
+        model = FolderInputs.model_validate(props)
         service = get_drive_service(model.client_secrets_path, model.token_path)
         try:
             body = GoogleDriveFileBody(trashed=True)
