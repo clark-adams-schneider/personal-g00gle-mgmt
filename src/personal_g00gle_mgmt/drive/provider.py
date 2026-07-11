@@ -14,6 +14,7 @@ from .models import (
     AnyMimeType,
     FolderInputs,
     GoogleDriveFileBody,
+    GoogleDriveFileResponse,
     GoogleDriveMimeType,
     GoogleDriveSearchQuery,
     PermissionResponse,
@@ -147,7 +148,7 @@ class FolderProvider(ResourceProvider):
         service = get_drive_service(model.client_secrets_path, model.token_path)
 
         try:
-            folder = (
+            folder_raw = (
                 service.files()
                 .get(
                     fileId=id_,
@@ -156,19 +157,22 @@ class FolderProvider(ResourceProvider):
                 .execute()
             )
 
-            if folder.get("trashed", False):
+            file_resp = GoogleDriveFileResponse(**folder_raw)
+
+            if file_resp.trashed:
                 return ReadResult(id_="", outs={})
 
-            outs = props.copy()
-            outs["name"] = folder.get("name")
-            outs["description"] = folder.get("description")
-            outs["folder_color_rgb"] = folder.get("folderColorRgb")
-            outs["mime_type"] = folder.get("mimeType")
+            model.name = file_resp.name
+            model.description = file_resp.description
+            if file_resp.folderColorRgb:
+                model.folder_color_rgb = file_resp.folderColorRgb.value
+            else:
+                model.folder_color_rgb = None
 
-            parents = folder.get("parents", [])
-            outs["parent"] = parents[0] if parents else None
+            model.mime_type = file_resp.mimeType
+            model.parent = file_resp.parents[0] if file_resp.parents else None
 
-            return ReadResult(id_=id_, outs=outs)
+            return ReadResult(id_=id_, outs=model.model_dump(mode="json"))
         except Exception:
             return ReadResult(id_="", outs={})
 

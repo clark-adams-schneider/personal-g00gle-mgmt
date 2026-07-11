@@ -99,6 +99,16 @@ class GoogleDriveSearchQuery(BaseModel):
         return f"mimeType = '{self.mime_type.value}' and name = '{self.name}' and '{parent_id}' in parents and trashed = {trashed_str}"
 
 
+class GoogleDriveFileResponse(BaseModel):
+    id: str
+    name: str
+    description: Optional[str] = None
+    folderColorRgb: Optional[GoogleDriveFolderColor] = None
+    mimeType: AnyMimeType
+    parents: List[str] = Field(default_factory=list)
+    trashed: bool = False
+
+
 class FolderInputs(BaseModel):
     name: str
     parent: Optional[str] = None
