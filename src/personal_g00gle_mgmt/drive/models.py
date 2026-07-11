@@ -25,6 +25,33 @@ class FolderInputs(BaseModel):
     source_hash: Optional[str] = None
 
 
+class GoogleDriveFolderColor(str, Enum):
+    CHOCOLATE = "#ac725e"
+    OLD_BRICK = "#d06b64"
+    CARDINAL = "#f83a22"
+    WILD_STRAWBERRY = "#fa573c"
+    MARS_ORANGE = "#ff7537"
+    YELLOW_CAB = "#ffad46"
+    SPEARMINT = "#42d692"
+    VERN_FERN = "#16a765"
+    MACARONI = "#7bd148"
+    DESIGN = "#b3dc6c"
+    YELLOW = "#fbe983"
+    LIGHT_GREEN = "#fad165"
+    SEAFOAM = "#92e1c0"
+    RAINY_SKY = "#9fe1e7"
+    CORNFLOWER = "#9fc6e7"
+    BLUE = "#4986e7"
+    LIGHT_PURPLE = "#9a9cff"
+    PURPLE = "#b99aff"
+    MOUSE = "#8f8f8f"
+    MOUNTAIN_GREY = "#cabdbf"
+    EARTHWORM = "#cca6ac"
+    BUBBLE_GUM = "#f691b2"
+    PURPLE_DINOSAUR = "#cd74e6"
+    TOY_AUBERGINE = "#a47ae2"
+
+
 class GoogleDriveMimeType(str, Enum):
     FOLDER = "application/vnd.google-apps.folder"
     SPREADSHEET = "application/vnd.google-apps.spreadsheet"
@@ -33,7 +60,7 @@ class GoogleDriveMimeType(str, Enum):
 
 class TreeNode(BaseModel):
     description: Optional[str] = Field(None, alias="_description")
-    color: Optional[str] = Field(None, alias="_color")
+    color: Optional[GoogleDriveFolderColor] = Field(None, alias="_color")
     permissions: List[PermissionModel] = Field(
         default_factory=list, alias="_permissions"
     )

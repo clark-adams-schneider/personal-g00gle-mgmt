@@ -44,7 +44,7 @@ class FolderTree(pulumi.ComponentResource):
                 client_secrets_path=client_secrets_path,
                 token_path=token_path,
                 description=node.description,
-                folder_color_rgb=node.color,
+                folder_color_rgb=node.color.value if node.color else None,
                 permissions=perms_dicts,
                 mime_type=mime_type,
                 source=abs_source,
