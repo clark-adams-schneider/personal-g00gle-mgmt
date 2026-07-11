@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from enum import Enum
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Union
 
 from pydantic import BaseModel, Field, RootModel, model_validator
 
@@ -50,21 +50,33 @@ class GoogleDriveMimeType(str, Enum):
     FOLDER = "application/vnd.google-apps.folder"
     SPREADSHEET = "application/vnd.google-apps.spreadsheet"
     DOCUMENT = "application/vnd.google-apps.document"
+
+    @property
+    def upload_mime_type(self) -> LocalMimeType:
+        if self == GoogleDriveMimeType.SPREADSHEET:
+            return LocalMimeType.XLSX
+        elif self == GoogleDriveMimeType.DOCUMENT:
+            return LocalMimeType.DOCX
+        return LocalMimeType.OCTET_STREAM
+
+
+class OfficeDocumentMimeType(str, Enum):
     XLSX = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     DOCX = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
 
     @property
     def upload_mime_type(self) -> LocalMimeType:
-        if self in (GoogleDriveMimeType.SPREADSHEET, GoogleDriveMimeType.XLSX):
+        if self == OfficeDocumentMimeType.XLSX:
             return LocalMimeType.XLSX
-        elif self in (GoogleDriveMimeType.DOCUMENT, GoogleDriveMimeType.DOCX):
-            return LocalMimeType.DOCX
-        return LocalMimeType.OCTET_STREAM
+        return LocalMimeType.DOCX
+
+
+AnyMimeType = Union[GoogleDriveMimeType, OfficeDocumentMimeType]
 
 
 class GoogleDriveFileBody(BaseModel):
     name: Optional[str] = None
-    mimeType: Optional[GoogleDriveMimeType] = None
+    mimeType: Optional[AnyMimeType] = None
     parents: Optional[List[str]] = None
     description: Optional[str] = None
     folderColorRgb: Optional[GoogleDriveFolderColor] = None
@@ -79,7 +91,7 @@ class FolderInputs(BaseModel):
     description: Optional[str] = None
     folder_color_rgb: Optional[str] = None
     permissions: List[PermissionModel] = Field(default_factory=list)
-    mime_type: GoogleDriveMimeType = Field(default=GoogleDriveMimeType.FOLDER)
+    mime_type: AnyMimeType = Field(default=GoogleDriveMimeType.FOLDER)
     source: Optional[Path] = None
     source_hash: Optional[str] = None
 
@@ -91,9 +103,7 @@ class TreeNode(BaseModel):
         default_factory=list, alias="_permissions"
     )
     source: Optional[Path] = Field(None, alias="_source")
-    mime_type: GoogleDriveMimeType = Field(
-        GoogleDriveMimeType.FOLDER, alias="_mimeType"
-    )
+    mime_type: AnyMimeType = Field(GoogleDriveMimeType.FOLDER, alias="_mimeType")
     node_id: Optional[str] = Field(None, alias="_id")
     children: Dict[str, TreeNode] = Field(default_factory=dict)
 
