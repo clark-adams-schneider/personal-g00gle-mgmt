@@ -10,7 +10,7 @@ from pulumi.dynamic import (
 )
 
 from ..auth import GoogleApiName, GoogleOAuthScope, get_google_service
-from .models import FolderInputs, GoogleDriveMimeType
+from .models import FolderInputs, GoogleDriveFileBody, GoogleDriveMimeType
 
 DRIVE_SCOPES = [
     GoogleOAuthScope.DRIVE_FILE,
@@ -58,35 +58,32 @@ class FolderProvider(ResourceProvider):
         return ""
 
     def _update_metadata(self, service, folder_id: str, model: FolderInputs, media):
-        body = {}
+        body = GoogleDriveFileBody()
         if model.description is not None:
-            body["description"] = model.description
-        if (
-            model.folder_color_rgb
-            and model.mime_type == "application/vnd.google-apps.folder"
-        ):
-            body["folderColorRgb"] = model.folder_color_rgb
+            body.description = model.description
+        if model.folder_color_rgb and model.mime_type == GoogleDriveMimeType.FOLDER:
+            body.folderColorRgb = model.folder_color_rgb
 
-        if body:
-            service.files().update(fileId=folder_id, body=body, fields="id").execute()
+        body_dict = body.model_dump(exclude_none=True)
+        if body_dict:
+            service.files().update(
+                fileId=folder_id, body=body_dict, fields="id"
+            ).execute()
         if media:
             service.files().update(
                 fileId=folder_id, media_body=media, fields="id"
             ).execute()
 
     def _create_resource(self, service, model: FolderInputs, media) -> str:
-        body = {"name": model.name, "mimeType": model.mime_type}
+        body = GoogleDriveFileBody(name=model.name, mimeType=model.mime_type)
         if model.parent:
-            body["parents"] = [model.parent]
+            body.parents = [model.parent]
         if model.description:
-            body["description"] = model.description
-        if (
-            model.folder_color_rgb
-            and model.mime_type == "application/vnd.google-apps.folder"
-        ):
-            body["folderColorRgb"] = model.folder_color_rgb
+            body.description = model.description
+        if model.folder_color_rgb and model.mime_type == GoogleDriveMimeType.FOLDER:
+            body.folderColorRgb = model.folder_color_rgb
 
-        kwargs = {"body": body, "fields": "id"}
+        kwargs = {"body": body.model_dump(exclude_none=True), "fields": "id"}
         if media:
             kwargs["media_body"] = media
 
@@ -114,12 +111,9 @@ class FolderProvider(ResourceProvider):
                         pass
 
             for perm in model.permissions:
-                body = {
-                    "emailAddress": perm.emailAddress,
-                    "role": perm.role,
-                    "type": perm.type,
-                }
-                service.permissions().create(fileId=folder_id, body=body).execute()
+                service.permissions().create(
+                    fileId=folder_id, body=perm.model_dump(exclude_none=True)
+                ).execute()
         except Exception as e:
             print(f"Error reconciling permissions: {e}")
 
@@ -227,6 +221,9 @@ class FolderProvider(ResourceProvider):
         model = FolderInputs(**props)
         service = get_drive_service(model.client_secrets_path, model.token_path)
         try:
-            service.files().update(fileId=id_, body={"trashed": True}).execute()
+            body = GoogleDriveFileBody(trashed=True)
+            service.files().update(
+                fileId=id_, body=body.model_dump(exclude_none=True)
+            ).execute()
         except Exception as e:
             print(f"Error trashing resource {id_}: {e}")

@@ -62,6 +62,15 @@ class GoogleDriveMimeType(str, Enum):
         return LocalMimeType.OCTET_STREAM
 
 
+class GoogleDriveFileBody(BaseModel):
+    name: Optional[str] = None
+    mimeType: Optional[GoogleDriveMimeType] = None
+    parents: Optional[List[str]] = None
+    description: Optional[str] = None
+    folderColorRgb: Optional[GoogleDriveFolderColor] = None
+    trashed: Optional[bool] = None
+
+
 class FolderInputs(BaseModel):
     name: str
     parent: Optional[str] = None
