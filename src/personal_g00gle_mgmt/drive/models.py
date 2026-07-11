@@ -26,18 +26,9 @@ class FolderInputs(BaseModel):
 
 
 class NodeType(str, Enum):
-    FOLDER = "folder"
-    SPREADSHEET = "spreadsheet"
-    DOCUMENT = "document"
-
-    @property
-    def mime_type(self) -> str:
-        mapping = {
-            NodeType.FOLDER: "application/vnd.google-apps.folder",
-            NodeType.SPREADSHEET: "application/vnd.google-apps.spreadsheet",
-            NodeType.DOCUMENT: "application/vnd.google-apps.document",
-        }
-        return mapping[self]
+    FOLDER = "application/vnd.google-apps.folder"
+    SPREADSHEET = "application/vnd.google-apps.spreadsheet"
+    DOCUMENT = "application/vnd.google-apps.document"
 
 
 class TreeNode(BaseModel):
