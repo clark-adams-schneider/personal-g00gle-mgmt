@@ -25,7 +25,7 @@ class FolderInputs(BaseModel):
     source_hash: Optional[str] = None
 
 
-class NodeType(str, Enum):
+class GoogleDriveMimeType(str, Enum):
     FOLDER = "application/vnd.google-apps.folder"
     SPREADSHEET = "application/vnd.google-apps.spreadsheet"
     DOCUMENT = "application/vnd.google-apps.document"
@@ -38,7 +38,9 @@ class TreeNode(BaseModel):
         default_factory=list, alias="_permissions"
     )
     source: Optional[str] = Field(None, alias="_source")
-    node_type: NodeType = Field(NodeType.FOLDER, alias="_type")
+    mime_type: GoogleDriveMimeType = Field(
+        GoogleDriveMimeType.FOLDER, alias="_mimeType"
+    )
     node_id: Optional[str] = Field(None, alias="_id")
     children: Dict[str, TreeNode] = Field(default_factory=dict)
 

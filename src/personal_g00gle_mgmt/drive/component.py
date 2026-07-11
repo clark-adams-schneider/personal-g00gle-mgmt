@@ -28,7 +28,7 @@ class FolderTree(pulumi.ComponentResource):
             abs_source = os.path.abspath(node.source) if node.source else None
             source_hash = get_file_hash(abs_source) if abs_source else None
 
-            mime_type = node.node_type.value
+            mime_type = node.mime_type.value
 
             resource_id = node.node_id or node_name
             resource_name = generate_resource_name(tree_name, resource_id)
