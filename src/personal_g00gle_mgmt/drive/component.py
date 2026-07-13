@@ -146,6 +146,7 @@ class FolderTree(pulumi.ComponentResource):
         folder = Folder(
             resource_name,
             name=plan.name,
+            resource_key=resource_name,
             parent=parent_id,
             extra_parent_ids=extra_parent_ids or None,
             client_secrets_path=str(client_secrets_path),
@@ -156,7 +157,8 @@ class FolderTree(pulumi.ComponentResource):
             mime_type=node.mime_type.value,
             source=str(abs_source) if abs_source else None,
             source_hash=source_hash,
-            opts=pulumi.ResourceOptions(parent=self),
+            protect=node.protect,
+            opts=pulumi.ResourceOptions(parent=self, protect=node.protect),
         )
 
         return folder.id

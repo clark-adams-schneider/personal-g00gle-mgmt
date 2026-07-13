@@ -8,6 +8,7 @@ from .provider import FolderProvider
 
 class Folder(Resource):
     name: pulumi.Output[str]
+    resource_key: pulumi.Output[str]
     parent: pulumi.Output[Optional[str]]
     extra_parent_ids: pulumi.Output[Optional[List[str]]]
     client_secrets_path: pulumi.Output[str]
@@ -18,11 +19,13 @@ class Folder(Resource):
     mime_type: pulumi.Output[str]
     source: pulumi.Output[Optional[str]]
     source_hash: pulumi.Output[Optional[str]]
+    protect: pulumi.Output[bool]
 
     def __init__(
         self,
         resource_name: str,
         name: pulumi.Input[str],
+        resource_key: pulumi.Input[str],
         parent: Optional[pulumi.Input[str]] = None,
         extra_parent_ids: Optional[pulumi.Input[List[pulumi.Input[str]]]] = None,
         client_secrets_path: Optional[pulumi.Input[str]] = None,
@@ -33,11 +36,13 @@ class Folder(Resource):
         mime_type: Optional[pulumi.Input[str]] = "application/vnd.google-apps.folder",
         source: Optional[pulumi.Input[str]] = None,
         source_hash: Optional[pulumi.Input[str]] = None,
+        protect: Optional[pulumi.Input[bool]] = False,
         opts: Optional[pulumi.ResourceOptions] = None,
     ):
 
         props = {
             "name": name,
+            "resource_key": resource_key,
             "parent": parent,
             "extra_parent_ids": extra_parent_ids,
             "client_secrets_path": client_secrets_path,
@@ -48,6 +53,7 @@ class Folder(Resource):
             "mime_type": mime_type,
             "source": source,
             "source_hash": source_hash,
+            "protect": protect,
         }
 
         super().__init__(FolderProvider(), resource_name, props, opts)
