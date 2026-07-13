@@ -26,6 +26,15 @@ Use Pydantic models to strongly type all inputs, configurations, and API specs. 
 ### 6. Context Awareness
 Read the constraints. This architecture is built for *Personal Gmail* via standard OAuth2, explicitly avoiding Google Workspace enterprise features (like Domain-Wide Delegation). Keep this context in mind for all documentation, naming, and architectural decisions.
 
+### 7. Entry-Point Parity
+Every capability this workspace exposes must be reachable as a first-class citizen through **all** of: raw REST/HTTP, MCP, CLI, and UTCP. None of these is a wrapper bolted onto another for appearances — each is a direct, intentional interface, even when they share an underlying typed client to stay DRY. When adding or changing a capability:
+- **REST**: the canonical HTTP implementation (e.g. a FastAPI route).
+- **UTCP**: a discovery manual (`/utcp` or equivalent) describing that REST tool via the UTCP spec's own terminology (`tool_call_template`, `call_template_type`, etc. — no invented synonyms, per Rule 3).
+- **MCP**: an MCP server/tool exposing the same capability.
+- **CLI**: a `pg0` subcommand exposing the same capability.
+
+Reference implementations and the protocol spec live at `/Users/cschneider/Desktop/growth/finances_/.references/utcp_` (the UTCP spec site, the `python-utcp` core + plugins, and `code-mode`) — consult these before hand-rolling UTCP manuals or call templates.
+
 <!-- code-review-graph MCP tools -->
 ## MCP Tools: code-review-graph
 
