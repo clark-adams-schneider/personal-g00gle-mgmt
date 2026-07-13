@@ -22,7 +22,6 @@ from .models import (
 
 DRIVE_SCOPES = [
     GoogleOAuthScope.DRIVE_FILE,
-    GoogleOAuthScope.SPREADSHEETS,
 ]
 
 
