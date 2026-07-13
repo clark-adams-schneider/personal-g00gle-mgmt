@@ -7,7 +7,7 @@ WORKDIR /app
 COPY requirements.txt .
 RUN uv pip install --system --no-cache -r requirements.txt
 
-COPY main.py .
+COPY main.py utcp_manual.py .
 
 USER appuser
 ENV PORT=8080

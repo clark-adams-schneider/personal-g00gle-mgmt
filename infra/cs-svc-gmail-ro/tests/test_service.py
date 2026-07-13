@@ -16,6 +16,27 @@ def test_health(service_url, id_token):
     assert response.json() == {"status": "ok"}
 
 
+def test_utcp_manual_shape(service_url, id_token):
+    response = requests.get(
+        f"{service_url}/utcp",
+        headers={"Authorization": f"Bearer {id_token}"},
+        timeout=10,
+    )
+    assert response.status_code == 200
+
+    body = response.json()
+    assert body["manual_version"]
+    assert body["utcp_version"]
+    assert len(body["tools"]) == 1
+
+    tool = body["tools"][0]
+    assert tool["name"] == "get_recent_emails"
+    call_template = tool["tool_call_template"]
+    assert call_template["call_template_type"] == "http"
+    assert call_template["url"] == f"{service_url}/api/v1/emails/recent"
+    assert call_template["auth"]["var_name"] == "Authorization"
+
+
 def test_recent_emails_shape(service_url, id_token):
     response = requests.get(
         f"{service_url}/api/v1/emails/recent",

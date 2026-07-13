@@ -12,12 +12,13 @@ import logging
 import os
 from typing import Optional
 
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import FastAPI, HTTPException, Query, Request
 from google.auth.transport.requests import Request as GoogleAuthRequest
 from google.cloud import secretmanager
 from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
+from utcp_manual import UtcpManual, build_manual
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("cs-svc-gmail-ro")
@@ -84,6 +85,11 @@ def _sanitize_message(raw: dict) -> dict:
 @app.get("/health")
 def health():
     return {"status": "ok"}
+
+
+@app.get("/utcp", response_model=UtcpManual)
+def utcp_discovery(request: Request) -> UtcpManual:
+    return build_manual(str(request.base_url).rstrip("/"))
 
 
 @app.get("/api/v1/emails/recent")
