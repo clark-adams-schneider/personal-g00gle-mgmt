@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Set
 
 from pulumi.dynamic import (
     CreateResult,
@@ -12,8 +12,10 @@ from pulumi.dynamic import (
 from ..auth import GoogleApiName, GoogleOAuthScope, get_google_service
 from .models import (
     AnyMimeType,
+    DriveFileParentsPatch,
     FolderInputs,
     GoogleDriveFileBody,
+    GoogleDriveFileParentsResponse,
     GoogleDriveFileResponse,
     GoogleDriveMimeType,
     GoogleDriveSearchQuery,
@@ -78,10 +80,35 @@ class FolderProvider(ResourceProvider):
                 fileId=folder_id, media_body=media, fields="id"
             ).execute()
 
+    @staticmethod
+    def _resolve_target_parents(model: FolderInputs) -> Set[str]:
+        target_parents = set(model.extra_parent_ids)
+        if model.parent:
+            target_parents.add(model.parent)
+        return target_parents
+
+    def _reconcile_parents(self, service, folder_id: str, model: FolderInputs) -> None:
+        target_parents = self._resolve_target_parents(model) or {"root"}
+        file_info_raw = (
+            service.files().get(fileId=folder_id, fields="parents").execute()
+        )
+        current_parents = set(GoogleDriveFileParentsResponse(**file_info_raw).parents)
+
+        add_parents = target_parents - current_parents
+        remove_parents = current_parents - target_parents
+        if not add_parents and not remove_parents:
+            return
+
+        patch = DriveFileParentsPatch.from_parent_diff(
+            folder_id, add_parents, remove_parents
+        )
+        service.files().update(**patch.model_dump(exclude_none=True)).execute()
+
     def _create_resource(self, service, model: FolderInputs, media) -> str:
         body = GoogleDriveFileBody(name=model.name, mimeType=model.mime_type)
-        if model.parent:
-            body.parents = [model.parent]
+        target_parents = self._resolve_target_parents(model)
+        if target_parents:
+            body.parents = sorted(target_parents)
         if model.description:
             body.description = model.description
         if model.folder_color_rgb and model.mime_type == GoogleDriveMimeType.FOLDER:
@@ -136,6 +163,7 @@ class FolderProvider(ResourceProvider):
         if existing_id:
             folder_id = existing_id
             self._update_metadata(service, folder_id, model, media)
+            self._reconcile_parents(service, folder_id, model)
         else:
             folder_id = self._create_resource(service, model, media)
 
@@ -169,7 +197,16 @@ class FolderProvider(ResourceProvider):
                 model.folder_color_rgb = None
 
             model.mime_type = file_resp.mimeType
-            model.parent = file_resp.parents[0] if file_resp.parents else None
+
+            primary_parent = (
+                model.parent
+                if model.parent in file_resp.parents
+                else (file_resp.parents[0] if file_resp.parents else None)
+            )
+            model.parent = primary_parent
+            model.extra_parent_ids = sorted(
+                p for p in file_resp.parents if p != primary_parent
+            )
 
             return ReadResult(id_=id_, outs=model.model_dump(mode="json"))
         except Exception:
@@ -203,17 +240,8 @@ class FolderProvider(ResourceProvider):
 
         self._update_metadata(service, id_, new_m, media)
 
-        if old_m.parent != new_m.parent:
-            file_info = service.files().get(fileId=id_, fields="parents").execute()
-            current_parents = file_info.get("parents", [])
-            remove_parents = ",".join(current_parents)
-            add_parents = new_m.parent if new_m.parent else "root"
-            service.files().update(
-                fileId=id_,
-                addParents=add_parents,
-                removeParents=remove_parents,
-                fields="id",
-            ).execute()
+        if self._resolve_target_parents(old_m) != self._resolve_target_parents(new_m):
+            self._reconcile_parents(service, id_, new_m)
 
         if old_m.permissions != new_m.permissions:
             self._reconcile_permissions(service, id_, new_m)

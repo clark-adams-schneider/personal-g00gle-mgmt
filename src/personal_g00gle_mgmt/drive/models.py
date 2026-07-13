@@ -2,9 +2,11 @@ from __future__ import annotations
 
 from enum import Enum
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional, Set, Tuple, Union
 
-from pydantic import BaseModel, Field, RootModel, model_validator
+from pydantic import BaseModel, ConfigDict, Field, RootModel, model_validator
+
+TREE_PATH_SEPARATOR = "/"
 
 
 class PermissionModel(BaseModel):
@@ -109,9 +111,72 @@ class GoogleDriveFileResponse(BaseModel):
     trashed: bool = False
 
 
+class GoogleDriveFileParentsResponse(BaseModel):
+    parents: List[str] = Field(default_factory=list)
+
+
+class DriveFileParentsPatch(BaseModel):
+    fileId: str
+    addParents: Optional[str] = None
+    removeParents: Optional[str] = None
+    fields: str = "id"
+
+    @classmethod
+    def from_parent_diff(
+        cls, file_id: str, add_parents: Set[str], remove_parents: Set[str]
+    ) -> "DriveFileParentsPatch":
+        return cls(
+            fileId=file_id,
+            addParents=",".join(sorted(add_parents)) if add_parents else None,
+            removeParents=(
+                ",".join(sorted(remove_parents)) if remove_parents else None
+            ),
+        )
+
+
+class TreePath(BaseModel):
+    """A node's position within a DriveSpec, as name segments from a spec root."""
+
+    segments: Tuple[str, ...]
+
+    model_config = ConfigDict(frozen=True)
+
+    @classmethod
+    def parse(cls, raw: str) -> "TreePath":
+        return cls(segments=tuple(raw.split(TREE_PATH_SEPARATOR)))
+
+    @classmethod
+    def of_root(cls, name: str) -> "TreePath":
+        return cls(segments=(name,))
+
+    def child(self, name: str) -> "TreePath":
+        return TreePath(segments=(*self.segments, name))
+
+    @property
+    def as_string(self) -> str:
+        return TREE_PATH_SEPARATOR.join(self.segments)
+
+    def __str__(self) -> str:
+        return self.as_string
+
+
+class DependencyCycle(BaseModel):
+    """A chain of DriveSpec parent references that loops back on itself."""
+
+    nodes: Tuple[TreePath, ...]
+
+    @property
+    def description(self) -> str:
+        return " -> ".join(node.as_string for node in self.nodes)
+
+    def __str__(self) -> str:
+        return self.description
+
+
 class FolderInputs(BaseModel):
     name: str
     parent: Optional[str] = None
+    extra_parent_ids: List[str] = Field(default_factory=list)
     client_secrets_path: Path
     token_path: Path
     description: Optional[str] = None
@@ -120,6 +185,11 @@ class FolderInputs(BaseModel):
     mime_type: AnyMimeType = Field(default=GoogleDriveMimeType.FOLDER)
     source: Optional[Path] = None
     source_hash: Optional[str] = None
+
+    @model_validator(mode="after")
+    def _normalize_extra_parent_ids(self) -> "FolderInputs":
+        self.extra_parent_ids = sorted(set(self.extra_parent_ids))
+        return self
 
 
 class TreeNode(BaseModel):
@@ -131,6 +201,7 @@ class TreeNode(BaseModel):
     source: Optional[Path] = Field(None, alias="_source")
     mime_type: AnyMimeType = Field(GoogleDriveMimeType.FOLDER, alias="_mimeType")
     node_id: Optional[str] = Field(None, alias="_id")
+    extra_parents: List[str] = Field(default_factory=list, alias="_parents")
     children: Dict[str, TreeNode] = Field(default_factory=dict)
 
     @model_validator(mode="before")
