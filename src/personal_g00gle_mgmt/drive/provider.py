@@ -12,8 +12,10 @@ from pulumi.dynamic import (
 from ..auth import GoogleApiName, GoogleOAuthScope, get_google_service
 from .models import (
     AnyMimeType,
+    DriveFileParentsPatch,
     FolderInputs,
     GoogleDriveFileBody,
+    GoogleDriveFileParentsResponse,
     GoogleDriveFileResponse,
     GoogleDriveMimeType,
     GoogleDriveSearchQuery,
@@ -88,20 +90,22 @@ class FolderProvider(ResourceProvider):
 
     def _reconcile_parents(self, service, folder_id: str, model: FolderInputs) -> None:
         target_parents = self._resolve_target_parents(model) or {"root"}
-        file_info = service.files().get(fileId=folder_id, fields="parents").execute()
-        current_parents = set(file_info.get("parents", []))
+        file_info_raw = (
+            service.files().get(fileId=folder_id, fields="parents").execute()
+        )
+        current_parents = set(GoogleDriveFileParentsResponse(**file_info_raw).parents)
 
         add_parents = target_parents - current_parents
         remove_parents = current_parents - target_parents
         if not add_parents and not remove_parents:
             return
 
-        update_kwargs = {"fileId": folder_id, "fields": "id"}
-        if add_parents:
-            update_kwargs["addParents"] = ",".join(sorted(add_parents))
-        if remove_parents:
-            update_kwargs["removeParents"] = ",".join(sorted(remove_parents))
-        service.files().update(**update_kwargs).execute()
+        patch = DriveFileParentsPatch(
+            fileId=folder_id,
+            addParents=",".join(sorted(add_parents)) if add_parents else None,
+            removeParents=",".join(sorted(remove_parents)) if remove_parents else None,
+        )
+        service.files().update(**patch.model_dump(exclude_none=True)).execute()
 
     def _create_resource(self, service, model: FolderInputs, media) -> str:
         body = GoogleDriveFileBody(name=model.name, mimeType=model.mime_type)

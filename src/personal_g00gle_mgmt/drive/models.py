@@ -109,6 +109,17 @@ class GoogleDriveFileResponse(BaseModel):
     trashed: bool = False
 
 
+class GoogleDriveFileParentsResponse(BaseModel):
+    parents: List[str] = Field(default_factory=list)
+
+
+class DriveFileParentsPatch(BaseModel):
+    fileId: str
+    addParents: Optional[str] = None
+    removeParents: Optional[str] = None
+    fields: str = "id"
+
+
 class FolderInputs(BaseModel):
     name: str
     parent: Optional[str] = None
