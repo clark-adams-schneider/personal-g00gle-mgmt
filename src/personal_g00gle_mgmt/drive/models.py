@@ -2,9 +2,11 @@ from __future__ import annotations
 
 from enum import Enum
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional, Set, Tuple, Union
 
-from pydantic import BaseModel, Field, RootModel, model_validator
+from pydantic import BaseModel, ConfigDict, Field, RootModel, model_validator
+
+TREE_PATH_SEPARATOR = "/"
 
 
 class PermissionModel(BaseModel):
@@ -118,6 +120,57 @@ class DriveFileParentsPatch(BaseModel):
     addParents: Optional[str] = None
     removeParents: Optional[str] = None
     fields: str = "id"
+
+    @classmethod
+    def from_parent_diff(
+        cls, file_id: str, add_parents: Set[str], remove_parents: Set[str]
+    ) -> "DriveFileParentsPatch":
+        return cls(
+            fileId=file_id,
+            addParents=",".join(sorted(add_parents)) if add_parents else None,
+            removeParents=(
+                ",".join(sorted(remove_parents)) if remove_parents else None
+            ),
+        )
+
+
+class TreePath(BaseModel):
+    """A node's position within a DriveSpec, as name segments from a spec root."""
+
+    segments: Tuple[str, ...]
+
+    model_config = ConfigDict(frozen=True)
+
+    @classmethod
+    def parse(cls, raw: str) -> "TreePath":
+        return cls(segments=tuple(raw.split(TREE_PATH_SEPARATOR)))
+
+    @classmethod
+    def of_root(cls, name: str) -> "TreePath":
+        return cls(segments=(name,))
+
+    def child(self, name: str) -> "TreePath":
+        return TreePath(segments=(*self.segments, name))
+
+    @property
+    def as_string(self) -> str:
+        return TREE_PATH_SEPARATOR.join(self.segments)
+
+    def __str__(self) -> str:
+        return self.as_string
+
+
+class DependencyCycle(BaseModel):
+    """A chain of DriveSpec parent references that loops back on itself."""
+
+    nodes: Tuple[TreePath, ...]
+
+    @property
+    def description(self) -> str:
+        return " -> ".join(node.as_string for node in self.nodes)
+
+    def __str__(self) -> str:
+        return self.description
 
 
 class FolderInputs(BaseModel):

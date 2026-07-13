@@ -100,10 +100,8 @@ class FolderProvider(ResourceProvider):
         if not add_parents and not remove_parents:
             return
 
-        patch = DriveFileParentsPatch(
-            fileId=folder_id,
-            addParents=",".join(sorted(add_parents)) if add_parents else None,
-            removeParents=",".join(sorted(remove_parents)) if remove_parents else None,
+        patch = DriveFileParentsPatch.from_parent_diff(
+            folder_id, add_parents, remove_parents
         )
         service.files().update(**patch.model_dump(exclude_none=True)).execute()
 

@@ -1,39 +1,41 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Dict, List, Optional, Union
 
 import pulumi
 
 from ..utils import generate_resource_name, get_file_hash
-from .models import DriveSpec, TreeNode
+from .models import DependencyCycle, DriveSpec, TreeNode, TreePath
 from .resource import Folder
-
-TREE_PATH_SEPARATOR = "/"
 
 
 @dataclass
 class PlannedNode:
-    path: str
+    path: TreePath
     name: str
     node: TreeNode
-    parent_path: Optional[str]
+    parent_path: Optional[TreePath]
+    extra_parent_paths: List[TreePath] = field(default_factory=list)
+
+    def dependency_paths(self) -> List[TreePath]:
+        deps = [self.parent_path] if self.parent_path else []
+        deps.extend(self.extra_parent_paths)
+        return deps
 
 
-def _flatten_spec(spec: DriveSpec) -> Dict[str, PlannedNode]:
-    """Walk the spec tree once, assigning each node a unique slash-joined path.
+def _flatten_spec(spec: DriveSpec) -> Dict[TreePath, PlannedNode]:
+    """Walk the spec tree once, assigning each node its TreePath.
 
     These paths are what `_parents` references in the spec resolve against.
     """
-    planned: Dict[str, PlannedNode] = {}
+    planned: Dict[TreePath, PlannedNode] = {}
 
-    def visit(node_name: str, node: TreeNode, parent_path: Optional[str]) -> None:
+    def visit(node_name: str, node: TreeNode, parent_path: Optional[TreePath]) -> None:
         path = (
-            f"{parent_path}{TREE_PATH_SEPARATOR}{node_name}"
-            if parent_path
-            else node_name
+            parent_path.child(node_name) if parent_path else TreePath.of_root(node_name)
         )
         if path in planned:
-            raise ValueError(f"Duplicate node path in DriveSpec: {path!r}")
+            raise ValueError(f"Duplicate node path in DriveSpec: {path}")
         planned[path] = PlannedNode(
             path=path, name=node_name, node=node, parent_path=parent_path
         )
@@ -46,39 +48,44 @@ def _flatten_spec(spec: DriveSpec) -> Dict[str, PlannedNode]:
     return planned
 
 
-def _dependency_paths(plan: PlannedNode, planned: Dict[str, PlannedNode]) -> List[str]:
-    deps = [plan.parent_path] if plan.parent_path else []
-    for ref in plan.node.extra_parents:
-        if ref not in planned:
-            raise ValueError(
-                f"Node {plan.path!r} has unknown _parents reference: {ref!r}"
-            )
-        deps.append(ref)
-    return deps
+def _resolve_extra_parent_references(planned: Dict[TreePath, PlannedNode]) -> None:
+    """Parse and validate each node's `_parents` refs against the flattened spec.
+
+    Populates `PlannedNode.extra_parent_paths` in place so downstream steps
+    (dependency ordering, resource construction) never re-parse the raw refs.
+    """
+    for plan in planned.values():
+        resolved_paths = []
+        for raw_ref in plan.node.extra_parents:
+            ref_path = TreePath.parse(raw_ref)
+            if ref_path not in planned:
+                raise ValueError(
+                    f"Node {plan.path} has unknown _parents reference: {raw_ref!r}"
+                )
+            resolved_paths.append(ref_path)
+        plan.extra_parent_paths = resolved_paths
 
 
-def _topological_build_order(planned: Dict[str, PlannedNode]) -> List[str]:
+def _topological_build_order(planned: Dict[TreePath, PlannedNode]) -> List[TreePath]:
     """Order nodes so every node is built after its primary and extra parents.
 
     A plain top-down tree walk can't do this on its own: an `_parents` entry
     may point at a node that hasn't been visited yet (e.g. a later sibling's
     descendant), so we need the full dependency graph before picking an order.
     """
-    dependencies = {
-        path: _dependency_paths(plan, planned) for path, plan in planned.items()
-    }
+    _resolve_extra_parent_references(planned)
 
-    visited: Dict[str, bool] = {}
-    order: List[str] = []
+    visited: Dict[TreePath, bool] = {}
+    order: List[TreePath] = []
 
-    def visit(path: str, stack: List[str]) -> None:
+    def visit(path: TreePath, stack: List[TreePath]) -> None:
         if visited.get(path):
             return
         if path in stack:
-            cycle = " -> ".join([*stack, path])
+            cycle = DependencyCycle(nodes=(*stack, path))
             raise ValueError(f"Cycle detected among DriveSpec parents: {cycle}")
         stack.append(path)
-        for dep_path in dependencies[path]:
+        for dep_path in planned[path].dependency_paths():
             visit(dep_path, stack)
         stack.pop()
         visited[path] = True
@@ -103,7 +110,7 @@ class FolderTree(pulumi.ComponentResource):
 
         planned = _flatten_spec(spec)
         build_order = _topological_build_order(planned)
-        folder_ids: Dict[str, pulumi.Output[str]] = {}
+        folder_ids: Dict[TreePath, pulumi.Output[str]] = {}
 
         for path in build_order:
             folder_ids[path] = self._build_node(
@@ -120,7 +127,7 @@ class FolderTree(pulumi.ComponentResource):
         self,
         tree_name: str,
         plan: PlannedNode,
-        folder_ids: Dict[str, pulumi.Output[str]],
+        folder_ids: Dict[TreePath, pulumi.Output[str]],
         client_secrets_path: Union[str, Path, pulumi.Input[str]],
         token_path: Union[str, Path, pulumi.Input[str]],
     ) -> pulumi.Output[str]:
@@ -132,7 +139,7 @@ class FolderTree(pulumi.ComponentResource):
         resource_name = generate_resource_name(tree_name, resource_id)
 
         parent_id = folder_ids[plan.parent_path] if plan.parent_path else None
-        extra_parent_ids = [folder_ids[ref] for ref in node.extra_parents]
+        extra_parent_ids = [folder_ids[p] for p in plan.extra_parent_paths]
 
         perms_dicts = [p.model_dump() for p in node.permissions]
 

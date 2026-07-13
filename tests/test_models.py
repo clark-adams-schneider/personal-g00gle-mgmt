@@ -1,12 +1,15 @@
 from pathlib import Path
 
 from personal_g00gle_mgmt.drive.models import (
+    DependencyCycle,
+    DriveFileParentsPatch,
     FolderInputs,
     GoogleDriveFolderColor,
     GoogleDriveMimeType,
     GoogleDriveSearchQuery,
     OfficeDocumentMimeType,
     TreeNode,
+    TreePath,
 )
 
 
@@ -70,6 +73,50 @@ def test_folder_inputs_extra_parent_ids_sorted_and_deduped():
     )
 
     assert inputs.extra_parent_ids == ["folder_b", "folder_c"]
+
+
+def test_tree_path_parse_and_as_string_roundtrip():
+    path = TreePath.parse("finances/_robots/finances-7")
+    assert path.segments == ("finances", "_robots", "finances-7")
+    assert path.as_string == "finances/_robots/finances-7"
+    assert str(path) == "finances/_robots/finances-7"
+
+
+def test_tree_path_of_root_and_child():
+    root = TreePath.of_root("finances")
+    child = root.child("_robots")
+    assert child == TreePath.parse("finances/_robots")
+
+
+def test_tree_path_equal_paths_hash_equal():
+    a = TreePath.parse("a/b")
+    b = TreePath.parse("a/b")
+    assert a == b
+    assert hash(a) == hash(b)
+    assert {a: "value"}[b] == "value"
+
+
+def test_dependency_cycle_description():
+    cycle = DependencyCycle(
+        nodes=(TreePath.parse("a"), TreePath.parse("b"), TreePath.parse("a"))
+    )
+    assert cycle.description == "a -> b -> a"
+    assert str(cycle) == "a -> b -> a"
+
+
+def test_drive_file_parents_patch_from_parent_diff_both():
+    patch = DriveFileParentsPatch.from_parent_diff(
+        "file_1", {"folder_b", "folder_a"}, {"folder_z"}
+    )
+    assert patch.fileId == "file_1"
+    assert patch.addParents == "folder_a,folder_b"
+    assert patch.removeParents == "folder_z"
+
+
+def test_drive_file_parents_patch_from_parent_diff_none():
+    patch = DriveFileParentsPatch.from_parent_diff("file_1", set(), set())
+    assert patch.addParents is None
+    assert patch.removeParents is None
 
 
 def test_search_query_derived_attr():
