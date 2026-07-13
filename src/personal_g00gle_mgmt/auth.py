@@ -58,4 +58,4 @@ def get_google_service(
         with token_path.open("w") as token_file:
             token_file.write(creds.to_json())
 
-    return build(api_name, api_version, credentials=creds)
+    return build(api_name.value, api_version, credentials=creds)
