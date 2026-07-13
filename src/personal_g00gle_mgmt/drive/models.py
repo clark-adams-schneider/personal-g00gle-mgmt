@@ -10,6 +10,8 @@ TREE_PATH_SEPARATOR = "/"
 
 
 class PermissionModel(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
     emailAddress: str
     role: str
     type: str
@@ -86,6 +88,7 @@ class GoogleDriveFileBody(BaseModel):
     description: Optional[str] = None
     folderColorRgb: Optional[GoogleDriveFolderColor] = None
     trashed: Optional[bool] = None
+    appProperties: Optional[Dict[str, str]] = None
 
 
 class GoogleDriveSearchQuery(BaseModel):
@@ -99,6 +102,50 @@ class GoogleDriveSearchQuery(BaseModel):
         parent_id = self.parent if self.parent else "root"
         trashed_str = "true" if self.trashed else "false"
         return f"mimeType = '{self.mime_type.value}' and name = '{self.name}' and '{parent_id}' in parents and trashed = {trashed_str}"
+
+
+class DrivePulumiAppPropertyKey(str, Enum):
+    RESOURCE_KEY = "pulumi.resourceKey"
+
+
+class GoogleDriveAppPropertyQuery(BaseModel):
+    key: DrivePulumiAppPropertyKey
+    value: str
+    trashed: bool = False
+
+    @property
+    def query_string(self) -> str:
+        trashed_str = "true" if self.trashed else "false"
+        return (
+            f"appProperties has {{ key='{self.key.value}' and value='{self.value}' }}"
+            f" and trashed = {trashed_str}"
+        )
+
+
+class ManagedResourceMarker(BaseModel):
+    """Tags a Drive file with the Pulumi resource key that manages it.
+
+    Stored as a Drive `appProperties` entry so the file can be found again by
+    identity even if it's renamed or moved outside of Pulumi, instead of only
+    ever being reconciled by (name, parent, mimeType).
+    """
+
+    resource_key: str
+
+    @property
+    def app_properties(self) -> Dict[str, str]:
+        return {DrivePulumiAppPropertyKey.RESOURCE_KEY.value: self.resource_key}
+
+    @classmethod
+    def from_app_properties(
+        cls, app_properties: Optional[Dict[str, str]]
+    ) -> Optional["ManagedResourceMarker"]:
+        if not app_properties:
+            return None
+        resource_key = app_properties.get(DrivePulumiAppPropertyKey.RESOURCE_KEY.value)
+        if resource_key is None:
+            return None
+        return cls(resource_key=resource_key)
 
 
 class GoogleDriveFileResponse(BaseModel):
@@ -175,6 +222,7 @@ class DependencyCycle(BaseModel):
 
 class FolderInputs(BaseModel):
     name: str
+    resource_key: str
     parent: Optional[str] = None
     extra_parent_ids: List[str] = Field(default_factory=list)
     client_secrets_path: Path
@@ -185,6 +233,7 @@ class FolderInputs(BaseModel):
     mime_type: AnyMimeType = Field(default=GoogleDriveMimeType.FOLDER)
     source: Optional[Path] = None
     source_hash: Optional[str] = None
+    protect: bool = False
 
     @model_validator(mode="after")
     def _normalize_extra_parent_ids(self) -> "FolderInputs":
@@ -202,6 +251,7 @@ class TreeNode(BaseModel):
     mime_type: AnyMimeType = Field(GoogleDriveMimeType.FOLDER, alias="_mimeType")
     node_id: Optional[str] = Field(None, alias="_id")
     extra_parents: List[str] = Field(default_factory=list, alias="_parents")
+    protect: bool = Field(False, alias="_protect")
     children: Dict[str, TreeNode] = Field(default_factory=dict)
 
     @model_validator(mode="before")

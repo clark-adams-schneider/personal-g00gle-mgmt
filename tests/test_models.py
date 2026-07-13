@@ -3,11 +3,15 @@ from pathlib import Path
 from personal_g00gle_mgmt.drive.models import (
     DependencyCycle,
     DriveFileParentsPatch,
+    DrivePulumiAppPropertyKey,
     FolderInputs,
+    GoogleDriveAppPropertyQuery,
     GoogleDriveFolderColor,
     GoogleDriveMimeType,
     GoogleDriveSearchQuery,
+    ManagedResourceMarker,
     OfficeDocumentMimeType,
+    PermissionModel,
     TreeNode,
     TreePath,
 )
@@ -63,9 +67,51 @@ def test_treenode_no_parents_defaults_empty():
     assert node.extra_parents == []
 
 
+def test_treenode_protect_defaults_false():
+    node = TreeNode.model_validate({})
+    assert node.protect is False
+
+
+def test_treenode_protect_alias_parses_true():
+    node = TreeNode.model_validate({"_protect": True})
+    assert node.protect is True
+
+
+def test_permission_model_is_hashable_and_comparable():
+    a = PermissionModel(emailAddress="a@example.com", role="reader", type="user")
+    b = PermissionModel(emailAddress="a@example.com", role="reader", type="user")
+    assert a == b
+    assert hash(a) == hash(b)
+
+
+def test_managed_resource_marker_app_properties_roundtrip():
+    marker = ManagedResourceMarker(resource_key="tree-report")
+
+    app_properties = marker.app_properties
+    assert app_properties == {"pulumi.resourceKey": "tree-report"}
+    assert ManagedResourceMarker.from_app_properties(app_properties) == marker
+
+
+def test_managed_resource_marker_from_app_properties_missing_key():
+    assert ManagedResourceMarker.from_app_properties({"other": "value"}) is None
+    assert ManagedResourceMarker.from_app_properties(None) is None
+
+
+def test_google_drive_app_property_query_string():
+    query = GoogleDriveAppPropertyQuery(
+        key=DrivePulumiAppPropertyKey.RESOURCE_KEY, value="tree-report"
+    )
+    expected = (
+        "appProperties has { key='pulumi.resourceKey' and value='tree-report' }"
+        " and trashed = false"
+    )
+    assert query.query_string == expected
+
+
 def test_folder_inputs_extra_parent_ids_sorted_and_deduped():
     inputs = FolderInputs(
         name="report",
+        resource_key="tree-report",
         parent="folder_a",
         extra_parent_ids=["folder_c", "folder_b", "folder_b"],
         client_secrets_path=Path("secrets.json"),

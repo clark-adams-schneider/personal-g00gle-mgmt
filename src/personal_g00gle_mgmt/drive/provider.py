@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Optional, Set
+from typing import List, Optional, Set
 
 from pulumi.dynamic import (
     CreateResult,
@@ -13,18 +13,26 @@ from ..auth import GoogleApiName, GoogleOAuthScope, get_google_service
 from .models import (
     AnyMimeType,
     DriveFileParentsPatch,
+    DrivePulumiAppPropertyKey,
     FolderInputs,
+    GoogleDriveAppPropertyQuery,
     GoogleDriveFileBody,
     GoogleDriveFileParentsResponse,
     GoogleDriveFileResponse,
     GoogleDriveMimeType,
     GoogleDriveSearchQuery,
+    ManagedResourceMarker,
+    PermissionModel,
     PermissionResponse,
 )
 
 DRIVE_SCOPES = [
     GoogleOAuthScope.DRIVE_FILE,
 ]
+
+
+class ProtectedResourceDeletionError(RuntimeError):
+    pass
 
 
 def get_drive_service(client_secrets_path: Path, token_path: Path):
@@ -46,22 +54,50 @@ class FolderProvider(ResourceProvider):
         upload_mime = mime_type.upload_mime_type.value
         return MediaFileUpload(str(source), mimetype=upload_mime, resumable=True)
 
-    def _find_existing(self, service, model: FolderInputs) -> str:
-        search_query = GoogleDriveSearchQuery(
-            mime_type=model.mime_type, name=model.name, parent=model.parent
-        )
+    def _search_single_file(self, service, query_string: str) -> str:
         try:
             results = (
                 service.files()
-                .list(q=search_query.query_string, spaces="drive", fields="files(id)")
+                .list(q=query_string, spaces="drive", fields="files(id)")
                 .execute()
             )
             files = results.get("files", [])
             if files:
                 return files[0]["id"]
         except Exception as e:
-            print(f"Error querying existing resources: {e}")
+            print(f"Error querying Drive: {e}")
         return ""
+
+    def _find_by_resource_key(self, service, model: FolderInputs) -> str:
+        query = GoogleDriveAppPropertyQuery(
+            key=DrivePulumiAppPropertyKey.RESOURCE_KEY, value=model.resource_key
+        )
+        return self._search_single_file(service, query.query_string)
+
+    def _find_by_name_and_parent(self, service, model: FolderInputs) -> str:
+        query = GoogleDriveSearchQuery(
+            mime_type=model.mime_type, name=model.name, parent=model.parent
+        )
+        return self._search_single_file(service, query.query_string)
+
+    def _find_existing(self, service, model: FolderInputs) -> str:
+        """Find the Drive file this resource manages, if one already exists.
+
+        Tries the stable `resource_key` tag first so a resource already known
+        to Pulumi is found even after being renamed or moved outside of it.
+        Only falls back to matching by (name, parent, mimeType) for adopting
+        a pre-existing, not-yet-Pulumi-managed file on first creation.
+        """
+        return self._find_by_resource_key(
+            service, model
+        ) or self._find_by_name_and_parent(service, model)
+
+    def _ensure_resource_key_tag(self, service, folder_id: str, model: FolderInputs):
+        marker = ManagedResourceMarker(resource_key=model.resource_key)
+        body = GoogleDriveFileBody(appProperties=marker.app_properties)
+        service.files().update(
+            fileId=folder_id, body=body.model_dump(exclude_none=True), fields="id"
+        ).execute()
 
     def _update_metadata(self, service, folder_id: str, model: FolderInputs, media):
         body = GoogleDriveFileBody()
@@ -105,7 +141,12 @@ class FolderProvider(ResourceProvider):
         service.files().update(**patch.model_dump(exclude_none=True)).execute()
 
     def _create_resource(self, service, model: FolderInputs, media) -> str:
-        body = GoogleDriveFileBody(name=model.name, mimeType=model.mime_type)
+        marker = ManagedResourceMarker(resource_key=model.resource_key)
+        body = GoogleDriveFileBody(
+            name=model.name,
+            mimeType=model.mime_type,
+            appProperties=marker.app_properties,
+        )
         target_parents = self._resolve_target_parents(model)
         if target_parents:
             body.parents = sorted(target_parents)
@@ -126,33 +167,62 @@ class FolderProvider(ResourceProvider):
 
         return folder.get("id")
 
-    def _reconcile_permissions(self, service, folder_id: str, model: FolderInputs):
+    def _list_permissions(self, service, folder_id: str) -> List[PermissionResponse]:
+        perms_result = (
+            service.permissions()
+            .list(fileId=folder_id, fields="permissions(id, emailAddress, role, type)")
+            .execute()
+        )
+        return [
+            PermissionResponse(**cp_raw)
+            for cp_raw in perms_result.get("permissions", [])
+        ]
+
+    def _delete_permission(self, service, folder_id: str, permission_id: str) -> None:
         try:
-            perms_result = (
-                service.permissions()
-                .list(
-                    fileId=folder_id, fields="permissions(id, emailAddress, role, type)"
-                )
-                .execute()
-            )
-            current_perms = perms_result.get("permissions", [])
+            service.permissions().delete(
+                fileId=folder_id, permissionId=permission_id
+            ).execute()
+        except Exception:
+            pass
 
-            for cp_raw in current_perms:
-                cp = PermissionResponse(**cp_raw)
-                if cp.emailAddress:
-                    try:
-                        service.permissions().delete(
-                            fileId=folder_id, permissionId=cp.id
-                        ).execute()
-                    except Exception:
-                        pass
+    def _create_permission(
+        self, service, folder_id: str, permission: PermissionModel
+    ) -> None:
+        service.permissions().create(
+            fileId=folder_id, body=permission.model_dump(exclude_none=True)
+        ).execute()
 
-            for perm in model.permissions:
-                service.permissions().create(
-                    fileId=folder_id, body=perm.model_dump(exclude_none=True)
-                ).execute()
+    def _reconcile_permissions(self, service, folder_id: str, model: FolderInputs):
+        """Diff live permissions against the declared set and apply only the delta.
+
+        Only permissions with an emailAddress are Pulumi-managed here (domain-
+        or anyone-scoped grants are left untouched); recreating the full list
+        on every change would rate-limit large trees and briefly leave the
+        file with no permissions at all mid-reconcile.
+        """
+        try:
+            current = self._list_permissions(service, folder_id)
         except Exception as e:
-            print(f"Error reconciling permissions: {e}")
+            print(f"Error listing permissions: {e}")
+            return
+
+        current_by_key = {
+            PermissionModel(
+                emailAddress=cp.emailAddress, role=cp.role, type=cp.type
+            ): cp.id
+            for cp in current
+            if cp.emailAddress and cp.role and cp.type
+        }
+        target = set(model.permissions)
+
+        for key, permission_id in current_by_key.items():
+            if key not in target:
+                self._delete_permission(service, folder_id, permission_id)
+
+        for perm in target:
+            if perm not in current_by_key:
+                self._create_permission(service, folder_id, perm)
 
     def create(self, inputs: FolderInputs) -> CreateResult:
         model = FolderInputs.model_validate(inputs)
@@ -164,6 +234,7 @@ class FolderProvider(ResourceProvider):
             folder_id = existing_id
             self._update_metadata(service, folder_id, model, media)
             self._reconcile_parents(service, folder_id, model)
+            self._ensure_resource_key_tag(service, folder_id, model)
         else:
             folder_id = self._create_resource(service, model, media)
 
@@ -240,6 +311,9 @@ class FolderProvider(ResourceProvider):
 
         self._update_metadata(service, id_, new_m, media)
 
+        if old_m.resource_key != new_m.resource_key:
+            self._ensure_resource_key_tag(service, id_, new_m)
+
         if self._resolve_target_parents(old_m) != self._resolve_target_parents(new_m):
             self._reconcile_parents(service, id_, new_m)
 
@@ -250,6 +324,11 @@ class FolderProvider(ResourceProvider):
 
     def delete(self, id_: str, props: FolderInputs) -> None:
         model = FolderInputs.model_validate(props)
+        if model.protect:
+            raise ProtectedResourceDeletionError(
+                f"Refusing to delete protected Drive resource {model.name!r} "
+                f"(id={id_}); remove _protect from the spec to allow deletion."
+            )
         service = get_drive_service(model.client_secrets_path, model.token_path)
         try:
             body = GoogleDriveFileBody(trashed=True)
