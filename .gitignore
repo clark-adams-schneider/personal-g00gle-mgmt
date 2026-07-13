@@ -16,3 +16,5 @@ ENV/
 # Pulumi / General
 .pulumi/
 .DS_Store
+# Added by code-review-graph
+.code-review-graph/
