@@ -105,7 +105,7 @@ class GoogleDriveSearchQuery(BaseModel):
 
 
 class DrivePulumiAppPropertyKey(str, Enum):
-    RESOURCE_KEY = "pulumi:resourceKey"
+    RESOURCE_KEY = "pulumi.resourceKey"
 
 
 class GoogleDriveAppPropertyQuery(BaseModel):

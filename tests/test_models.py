@@ -88,7 +88,7 @@ def test_managed_resource_marker_app_properties_roundtrip():
     marker = ManagedResourceMarker(resource_key="tree-report")
 
     app_properties = marker.app_properties
-    assert app_properties == {"pulumi:resourceKey": "tree-report"}
+    assert app_properties == {"pulumi.resourceKey": "tree-report"}
     assert ManagedResourceMarker.from_app_properties(app_properties) == marker
 
 
@@ -102,7 +102,7 @@ def test_google_drive_app_property_query_string():
         key=DrivePulumiAppPropertyKey.RESOURCE_KEY, value="tree-report"
     )
     expected = (
-        "appProperties has { key='pulumi:resourceKey' and value='tree-report' }"
+        "appProperties has { key='pulumi.resourceKey' and value='tree-report' }"
         " and trashed = false"
     )
     assert query.query_string == expected
