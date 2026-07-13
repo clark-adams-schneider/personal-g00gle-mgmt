@@ -112,6 +112,7 @@ class GoogleDriveFileResponse(BaseModel):
 class FolderInputs(BaseModel):
     name: str
     parent: Optional[str] = None
+    extra_parent_ids: List[str] = Field(default_factory=list)
     client_secrets_path: Path
     token_path: Path
     description: Optional[str] = None
@@ -120,6 +121,11 @@ class FolderInputs(BaseModel):
     mime_type: AnyMimeType = Field(default=GoogleDriveMimeType.FOLDER)
     source: Optional[Path] = None
     source_hash: Optional[str] = None
+
+    @model_validator(mode="after")
+    def _normalize_extra_parent_ids(self) -> "FolderInputs":
+        self.extra_parent_ids = sorted(set(self.extra_parent_ids))
+        return self
 
 
 class TreeNode(BaseModel):
@@ -131,6 +137,7 @@ class TreeNode(BaseModel):
     source: Optional[Path] = Field(None, alias="_source")
     mime_type: AnyMimeType = Field(GoogleDriveMimeType.FOLDER, alias="_mimeType")
     node_id: Optional[str] = Field(None, alias="_id")
+    extra_parents: List[str] = Field(default_factory=list, alias="_parents")
     children: Dict[str, TreeNode] = Field(default_factory=dict)
 
     @model_validator(mode="before")

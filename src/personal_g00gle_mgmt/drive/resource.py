@@ -9,6 +9,7 @@ from .provider import FolderProvider
 class Folder(Resource):
     name: pulumi.Output[str]
     parent: pulumi.Output[Optional[str]]
+    extra_parent_ids: pulumi.Output[Optional[List[str]]]
     client_secrets_path: pulumi.Output[str]
     token_path: pulumi.Output[str]
     description: pulumi.Output[Optional[str]]
@@ -23,6 +24,7 @@ class Folder(Resource):
         resource_name: str,
         name: pulumi.Input[str],
         parent: Optional[pulumi.Input[str]] = None,
+        extra_parent_ids: Optional[pulumi.Input[List[pulumi.Input[str]]]] = None,
         client_secrets_path: Optional[pulumi.Input[str]] = None,
         token_path: Optional[pulumi.Input[str]] = None,
         description: Optional[pulumi.Input[str]] = None,
@@ -37,6 +39,7 @@ class Folder(Resource):
         props = {
             "name": name,
             "parent": parent,
+            "extra_parent_ids": extra_parent_ids,
             "client_secrets_path": client_secrets_path,
             "token_path": token_path,
             "description": description,
